@@ -95,10 +95,9 @@ def forecast_one_step(model, Y, active_count):
 def main():
     args = parse_args()
 
-    # Deterministic retrains (so week-to-week changes mostly reflect new data)
     np.random.seed(0)
     torch.manual_seed(0)
-    torch.use_deterministic_algorithms(False)  # keep default; set True if you want stricter determinism
+    torch.use_deterministic_algorithms(False)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     Y = load_Y(args.data_path, args.picks, device=device)
@@ -106,12 +105,39 @@ def main():
     T, N = Y.shape
     print(f"Loaded {args.data_path} with T={T}, N={N}")
 
-    model = TopKGRU(N=N, hidden=32).to(device)
-    model = train_from_scratch(model, Y, epochs=120, lr=1e-3)
+    # ── Ensemble over multiple seeds ──────────────────────────────────────
+    N_ENSEMBLE = 5
+    all_scores = []
 
-    topk, _ = forecast_one_step(model, Y, args.picks)
-    print(f"Forecast top-{args.picks} (0-based):", topk.tolist())
-    print(f"Forecast top-{args.picks} (1-based):", [i + 1 for i in topk.tolist()])
+    for seed in range(N_ENSEMBLE):
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        model = TopKGRU(N=N, hidden=32).to(device)
+        model = train_from_scratch(model, Y, epochs=120, lr=1e-3)
+
+        _, scores = forecast_one_step(model, Y, args.picks)
+        all_scores.append(scores)
+
+        topk_seed = torch.topk(scores, k=args.picks).indices
+        print(f"[Seed {seed}] picks (1-based): {[i+1 for i in topk_seed.tolist()]}")
+
+    # ── Average scores across all models ─────────────────────────────────
+    avg_scores = torch.stack(all_scores).mean(dim=0)   # [N]
+    topk = torch.topk(avg_scores, k=args.picks).indices
+
+    print(f"\nEnsemble Forecast top-{args.picks} (0-based): {topk.tolist()}")
+    print(f"Ensemble Forecast top-{args.picks} (1-based): {[i+1 for i in topk.tolist()]}")
+
+    # ── Confidence report — how many seeds voted for each top-10 component ─
+    TOP_N_REPORT = 10
+    sorted_idx = torch.argsort(avg_scores, descending=True)
+    seed_topk_sets = [set(torch.topk(s, k=args.picks).indices.tolist()) for s in all_scores]
+    print(f"\nConfidence report (top {TOP_N_REPORT} components):")
+    for rank, idx in enumerate(sorted_idx[:TOP_N_REPORT]):
+        i = idx.item()
+        votes = sum(1 for topk_set in seed_topk_sets if i in topk_set)
+        print(f"  #{rank+1:2d}  component {i+1:3d}  avg_score={avg_scores[i]:.4f}  votes={votes}/{N_ENSEMBLE}")
 
 if __name__ == "__main__":
     main()
