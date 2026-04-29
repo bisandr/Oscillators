@@ -1,0 +1,30 @@
+# --- Project-specific ignores ---
+data/
+about/
+
+# --- Python standard ignores ---
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+*.pyo
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyInstaller
+build/
+dist/
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
