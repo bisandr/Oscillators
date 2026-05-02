@@ -88,7 +88,7 @@ class TopKGRU(nn.Module):
         )
         # explicit inter-component interaction (N×N learned coupling matrix)
         self.interaction = nn.Linear(N, N, bias=False)
-        nn.init.eye_(self.interaction.weight)   # start as identity
+        nn.init.zeros_(self.interaction.weight)  # start neutral; learned from data
         # MLP scoring head
         self.out = nn.Sequential(
             nn.Linear(hidden, hidden),
