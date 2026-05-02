@@ -28,3 +28,6 @@ dist/
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# File-types
+*.png
