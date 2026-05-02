@@ -195,7 +195,7 @@ def simulate_future(model, Y_input, Y_target, active_count, steps=10):
         scores = model.scores_next(h_top, y_cur)
         probs  = torch.sigmoid(scores)
         sampled = torch.zeros_like(probs)
-        sampled[torch.topk(probs, k=active_count).indices] = 1.0
+        sampled[torch.multinomial(probs, num_samples=active_count, replacement=False)] = 1.0
         simulated.append(sampled.clone())
 
         # Update last_seen for active components (vectorized)
